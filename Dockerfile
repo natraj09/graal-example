@@ -1,0 +1,36 @@
+FROM oracle/graalvm-ce:20.1.0-java11
+ 
+ADD . /build
+WORKDIR /build
+ 
+# For SDKMAN to work we need unzip & zip
+RUN yum install -y unzip zip
+ 
+RUN \
+    # Install SDKMAN
+    curl -s "https://get.sdkman.io" | bash; \
+    source "$HOME/.sdkman/bin/sdkman-init.sh"; \
+    # Install Maven
+    sdk install maven; \
+    # Install GraalVM Native Image
+    gu install native-image;
+ 
+RUN source "$HOME/.sdkman/bin/sdkman-init.sh" && mvn --version
+ 
+RUN native-image --version
+ 
+RUN source "$HOME/.sdkman/bin/sdkman-init.sh" && mvn -Pnative clean package
+ 
+ 
+# We use a Docker multi-stage build here so that we only take the compiled native Spring Boot app from the first build container
+FROM oraclelinux:7-slim
+ 
+MAINTAINER Jonas Hecht
+ 
+
+
+# Add Spring Boot Native app spring-boot-graal to Container
+COPY --from=0 "./target/com.playground.graalexample.restserviceapplication" graal-example
+ 
+# Fire up our Spring Boot Native app by default
+CMD [ "sh", "-c", "./graal-example" ]
